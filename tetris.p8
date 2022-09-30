@@ -20,7 +20,7 @@ board_width=10
 board_height=20
 board={}
 
-current_piece=nil
+piece=nil
 next_piece=0
 spawn_time=0
 step_time=0
@@ -63,13 +63,13 @@ pieces={
     {▒,█,▒}
   }},
   {{
-    {▒,▒,▒,▒},
-    {▒,▒,█,█},
-    {▒,█,█,▒}
+    {▒,▒,▒},
+    {▒,█,█},
+    {█,█,▒}
   },{
-    {▒,▒,█,▒},
-    {▒,▒,█,█},
-    {▒,▒,▒,█}
+    {▒,█,▒},
+    {▒,█,█},
+    {▒,▒,█}
   }},
   {{
     {▒,▒,▒},
@@ -81,21 +81,21 @@ pieces={
     {█,▒,▒}
   }},
   {{
-    {▒,▒,▒,▒},
-    {▒,█,█,█},
-    {▒,▒,▒,█}
+    {▒,▒,▒},
+    {█,█,█},
+    {▒,▒,█}
   },{
-    {▒,▒,█,█},
-    {▒,▒,█,▒},
-    {▒,▒,█,▒}
+    {▒,█,█},
+    {▒,█,▒},
+    {▒,█,▒}
   },{
-    {▒,█,▒,▒},
-    {▒,█,█,█},
-    {▒,▒,▒,▒}
+    {█,▒,▒},
+    {█,█,█},
+    {▒,▒,▒}
   },{
-    {▒,▒,█,▒},
-    {▒,▒,█,▒},
-    {▒,█,█,▒}
+    {▒,█,▒},
+    {▒,█,▒},
+    {█,█,▒}
   }},
   {{
     {▒,▒,▒},
@@ -126,7 +126,7 @@ function init_board()
 end
 
 function set_next_piece()
-  spawn_time=30*2 --todo: level
+  spawn_time=calc_step_time()*2
   next_piece=flr(rnd(#pieces))+1
 end
 
@@ -139,21 +139,32 @@ function start_game()
 end
 
 function _init()
+  init_board()
+end
+
+function calc_step_time()
+  return max(3,flr((10-level)*2.5+1.5))
 end
 
 function set_step_time()
-  step_time=30*1 --todo: level
+  step_time=calc_step_time()
 end
 
 function spawn_piece()
   tmp=pieces[next_piece]
-  current_piece={
+  piece={
     t=next_piece,
     tmp=tmp,
     i=1,
-    j=5-flr(#tmp[1]/2),
+    j=6-flr(#tmp[1]/2),
     r=1
   }
+  if not valid(0, 0, piece.r) then
+    piece.i-=1
+    if not valid(0, 0, piece.r) then
+      state=s_game_over
+    end
+  end
   set_next_piece()
   set_step_time()
 end
@@ -185,26 +196,115 @@ function update_menu()
   end
 end
 
+function valid(di, dj, r)
+  pi=piece.i+di
+  pj=piece.j+dj
+  tmp=piece.tmp[r]
+  for ii=1,#tmp,1 do
+    for jj=1,#tmp[1],1 do
+      if tmp[ii][jj] then
+        i=pi+ii-1
+        j=pj+jj-1
+        if (i<1) return false
+        if (i>board_height) return false
+        if (j<1) return false
+        if (j>board_width) return false
+        if (board[i][j]!=0) return false
+      end
+    end
+  end
+  return true
+end
+
+function clear_line(from_i)
+  for i=from_i,2,-1 do
+    for j=1,board_width,1 do
+      board[i][j]=board[i-1][j]
+    end
+  end
+  for j=1,board_width,1 do
+    board[1][j]=0
+  end
+end
+
+function level_up()
+  level=min(10,max(level,ceil((lines+1)/10)))
+end
+
+function check_lines()
+  lc=0
+  for i=1,board_height,1 do
+    full=true
+    for j=1,board_width,1 do
+      if board[i][j]==0 then
+        full=false
+      end
+    end
+    if full then
+      clear_line(i)
+      lc+=1
+    end
+  end
+  if lc>0 then
+    score+=(2^(lc-1)*100)*level
+    lines+=lc
+    level_up()
+  end
+end
+
+function set_piece()
+  pi=piece.i
+  pj=piece.j
+  tmp=piece.tmp[piece.r]
+  for ii=1,#tmp,1 do
+    for jj=1,#tmp[1],1 do
+      if tmp[ii][jj] then
+		      i=pi+ii-1
+		      j=pj+jj-1
+        board[i][j]=piece.t
+      end
+    end
+  end
+  check_lines()
+  piece=nil
+end
+
 function move_left()
-  current_piece.j-=1
+  if valid(0, -1, piece.r) then
+    piece.j-=1
+  end
 end
 
 function move_right()
-  current_piece.j+=1
+  if valid(0, 1, piece.r) then
+    piece.j+=1
+  end
 end
 
 function move_down()
-  current_piece.i+=1
+  if valid(1, 0, piece.r) then
+    piece.i+=1
+  else
+    set_piece()
+  end
 end
 
 function rotate()
-  r=current_piece.r
+  r=piece.r
   r+=1
-  if (r>#current_piece.tmp) r=1
-  current_piece.r=r
+  if (r>#piece.tmp) r=1
+  if valid(0, 0, r) then
+    piece.r=r
+  end
 end
 
 function drop()
+  di=0
+  while valid(di+1, 0, piece.r) do
+    di+=1
+  end
+  piece.i+=di
+  set_piece()
 end
 
 function update_current_piece()
@@ -220,7 +320,7 @@ function update_current_piece()
 end
 
 function update_game()
-  if current_piece then
+  if piece then
     update_current_piece()
   else
     spawn_time-=1
@@ -232,9 +332,6 @@ end
 
 function update_game_over()
   if btnp(4) then
-    start_game() 
-  end
-  if btnp(5) then
     state=s_menu
   end
 end
@@ -303,19 +400,45 @@ function draw_board()
   end
 end
 
+function draw_score_box()
+  draw_box(8, 8, 36, 50, 6)
+  print("score", 10, 10, 0)
+  print(score, 12, 18, 1)
+  print("lines", 10, 26, 0)
+  print(lines, 12, 34, 1)
+  print("level", 10, 42, 0)
+  print(level, 12, 50, 1)
+end
+
+function draw_next_box()
+  draw_box(8, 66, 36, 36, 0)
+  print("next", 14, 72, 8)
+  tmp=pieces[next_piece][1]
+  for i=1,#tmp,1 do
+    for j=1,#tmp[1],1 do
+      if tmp[i][j] then
+        spr(next_piece-1,8+j*6,72+i*6)
+      end
+    end
+  end
+end
+
 function draw_game_over()
+  draw_box(32, 48, 64, 32, 7)
+  print("game over", 46, 56, 0)
+  print("press ❎", 48, 68, 0)
 end
 
 function draw_current_piece()
-  if (not current_piece) return
+  if (not piece) return
 
-  tmp=current_piece.tmp[current_piece.r]
-  i=current_piece.i
-  j=current_piece.j
+  tmp=piece.tmp[piece.r]
+  i=piece.i
+  j=piece.j
   for ii=1,#tmp,1 do
     for jj=1,#tmp[1],1 do
       if tmp[ii][jj] then
-        draw_block(i+ii-1,j+jj-1,current_piece.t)
+        draw_block(i+ii-1,j+jj-1,piece.t)
       end
     end
   end
@@ -327,6 +450,10 @@ function _draw()
     draw_menu()
   else
     draw_board()
+    draw_score_box()
+    if show_next then
+      draw_next_box()
+    end
     if state==s_game_over then
       draw_game_over()
     else
@@ -395,10 +522,3 @@ __gfx__
 00006cc100000e882e882e882000007665000007bb300007bb30fee2fee2fee20a994a994a994000000000000000000000000000000000000000000000000000
 00006cc100000e882e882e882000007665000007bb300007bb30fee2fee2fee20a994a994a994000000000000000000000000000000000000000000000000000
 0000611100000e222e222e222000007555000007333000073330f222f222f2220a444a444a444000000000000000000000000000000000000000000000000000
-__map__
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000121312130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000222322230000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000121312130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000222322230000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
