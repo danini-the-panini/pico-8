@@ -313,10 +313,12 @@ function update_current_piece()
     move_down()
     set_step_time()
   end
-  if (btnp(0)) move_left()
-  if (btnp(1)) move_right()
-  if (btnp(2)) rotate()
-  if (btnp(3)) drop()
+  if piece then
+    if (btnp(0)) move_left()
+    if (btnp(1)) move_right()
+    if (btnp(2)) rotate()
+    if (btnp(3)) drop()
+  end
 end
 
 function update_game()
