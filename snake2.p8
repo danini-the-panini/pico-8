@@ -1,24 +1,108 @@
 pico-8 cartridge // http://www.pico-8.com
 version 38
 __lua__
+-- sprites
+headh=0
+oheadh=1
+headv=32
+oheadv=33
+bodyh=2
+bodyv=3
+tailh=34
+tailv=35
+bend=4
+bendf=5
+bodyf=36
+egg=37
+
+--directions
+up=1
+right=2
+down=3
+left=4
+
 intro=true
 score=0
+snake={}
+curdir=right
+nextdir=nil
+level=1
+snake_step=0
 
 function _init()
 end
 
 function start_game()
   score=0
+  snake_step=15
   snake={
-  
+    {9,14},
+    {10,14},
+    {11,14},
+    {12,14},
+    {13,14},
+    {14,14},
+    {15,14}
   }
 end
 
+function move_snake()
+  t=snake[1]
+  h=snake[#snake]
+  nh={h[1],h[2]}
+  if curdir==up then
+    nh[2]-=1
+  elseif curdir==down then
+    nh[2]+=1
+  elseif curdir==left then
+    nh[1]-=1
+  elseif curdir==right then
+    nh[1]+=1
+  end
+  del(snake,t)
+  add(snake,nh)
+end
+
+function update_snake()
+  if snake_step<=0 then
+    snake_step=15
+    if (nextdir) curdir=nextdir
+    nextdir=nil
+    move_snake()
+  else
+    snake_step-=1
+  end
+end
+
+function direct_snake()
+  if (nextdir) return
+  if curdir==up or curdir==down then
+    if btnp(0) then
+      nextdir=left
+    end
+    if btnp(1) then
+      nextdir=right
+    end
+  end
+  if curdir==left or curdir==right then
+    if btnp(2) then
+      nextdir=up
+    end
+    if btnp(3) then
+      nextdir=down
+    end
+  end
+end
+
 function _update()
-  if intro and btnp(5) then
-    intro=false
-    start_game()
-    return
+  if intro then
+    if btnp(5) then
+      intro=false
+      start_game()
+    end
+  else
+    update_snake()
+    direct_snake()
   end
 end
 
@@ -32,6 +116,124 @@ function spr4(n, x, y, fx, fy)
   )
 end
 
+function calc_dir(dx,dy)
+  if (dx<0) return left
+  if (dx>0) return right
+  if (dy<0) return up
+  if (dy>0) return down
+end
+
+function snspr(n,x,y,fx,fy)
+  spr4(n,4+x*4,12+y*4,fx,fy)
+end
+
+function draw_tail(x,y,dirn)
+  if dirn==up then
+    snspr(tailv,x,y,false,true)
+  elseif dirn==down then
+    snspr(tailv,x,y,false,false)
+  elseif dirn==left then
+    snspr(tailh,x,y,true,false)
+  elseif dirn==right then
+    snspr(tailh,x,y,false,false)
+  end
+end
+
+function draw_head(x,y,dirp)
+  local sn=0
+  local fx=false
+  local fy=false
+  if dirp==up then
+    sn=headv
+  elseif dirp==down then
+    sn=headv
+    fy=true
+  elseif dirp==left then
+    sn=headh
+  elseif dirp==right then
+    sn=headh
+    fx=true
+  end
+  snspr(sn,x,y,fx,fy)
+end
+
+function draw_body(x,y,dirp,dirn)
+  local fx=false
+  local fy=false
+  if dirp==up then
+    if dirn==down then
+      sn=bodyv
+    elseif dirn==left then
+      sn=bend
+      fx=true
+      fy=true
+    elseif dirn==right then
+      sn=bend
+      fy=true
+    end
+  elseif dirp==down then
+    if dirn==up then
+      sn=bodyv
+      fy=true
+    elseif dirn==left then
+      sn=bend
+      fx=true
+    elseif dirn==right then
+      sn=bend
+    end
+  elseif dirp==left then
+    if dirn==up then
+      sn=bend
+      fx=true
+      fy=true
+    elseif dirn==down then
+      sn=bend
+      fx=true
+    elseif dirn==right then
+      sn=bodyh
+    end
+  elseif dirp==right then
+    if dirn==up then
+      sn=bend
+      fy=true
+    elseif dirn==down then
+      sn=bend
+    elseif dirn==left then
+      sn=bodyh
+      fx=true
+    end
+  end
+  snspr(sn,x,y,fx,fy)
+end
+
+function draw_snake()
+  for i=1,#snake,1 do
+    local sx=snake[i][1]
+    local sy=snake[i][2]
+    local dirp=0
+    local dirn=0
+    if i>1 then
+      dirp=calc_dir(
+        snake[i-1][1]-sx,
+        snake[i-1][2]-sy
+      )
+    end
+    if i<#snake then
+      dirn=calc_dir(
+        snake[i+1][1]-sx,
+        snake[i+1][2]-sy
+      )
+    end
+    if i==1 then
+      draw_tail(sx,sy,dirn)
+    elseif i==#snake then
+      draw_head(sx,sy,dirp)
+    else
+      draw_body(sx,sy,dirp,dirn)
+    end
+  end
+end
+
 function _draw()
   cls(11)
   if intro then
@@ -40,21 +242,18 @@ function _draw()
   else
     print(score, 2, 3, 3)
     rect(2, 10, 125, 125, 3)
-    spr4(0, 64, 64)
-    spr4(2, 60, 64)
-    spr4(2, 56, 64)
-    spr4(34, 52, 64)
+    draw_snake()
   end
 end
 __gfx__
-3bbb3b3bbbbbb33bbbbbbbbbb3bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-b33bb3bb33b3b3bbbb3333bb3b3b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-333b33bb3b33bb3bb3b33b3bb3bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-bbbbbb3bbbbbb33bb33bb33bbbbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-b3b3b3b3bbbbbb3bb33bb33b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-b33bb33bbb33bb3bb3b33b3b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-b33b3bb33333b33bbb3333bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-bbbbbbbbbbbbb33bbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3bbb3b3bbbbbb33bbbbbbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b33bb3bb33b3b3bbbb33bb3300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+333b33bb3b33bb3bb3b3b3b300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbbbbb3bbbbbb33bb33bb33300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b3b3b3b3bbbbbb3bb33bb3bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b33bb33bbb33bb3b33b33b3b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+b33b3bb33333b33b3b33b3bb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+bbbbbbbbbbbbb33bb33bbbbb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
