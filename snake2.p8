@@ -22,34 +22,47 @@ down=3
 left=4
 
 intro=true
+game_over=false
 score=0
 snake={}
 curdir=right
 nextdir=nil
 level=1
 snake_step=0
+max_snake_step=5
+cur_egg=nil
+
+function peq(a,b)
+  return a[1]==b[1] and a[2]==b[2]
+end
 
 function _init()
 end
 
 function start_game()
   score=0
-  snake_step=15
+  snake_step=max_snake_step
+  nextdir=nil
   snake={
-    {9,14},
-    {10,14},
-    {11,14},
-    {12,14},
-    {13,14},
-    {14,14},
-    {15,14}
+    {9,14,false},
+    {10,14,false},
+    {11,14,false},
+    {12,14,false},
+    {13,14,false},
+    {14,14,false},
+    {15,14,false}
   }
+  spawn_egg()
 end
 
-function move_snake()
-  t=snake[1]
-  h=snake[#snake]
-  nh={h[1],h[2]}
+function do_game_over()
+  sfx(1)
+  game_over=true
+end
+
+function next_snake_pt()
+  local h=snake[#snake]
+  local nh={h[1],h[2]}
   if curdir==up then
     nh[2]-=1
   elseif curdir==down then
@@ -59,13 +72,31 @@ function move_snake()
   elseif curdir==right then
     nh[1]+=1
   end
-  del(snake,t)
-  add(snake,nh)
+  nh[1]%=30
+  nh[2]%=28
+  return nh
+end
+
+function move_snake()
+  local nh=next_snake_pt()
+  if on_snake(nh) then
+    do_game_over()
+    return
+  end
+  if peq(nh,cur_egg) then
+    sfx(0)
+    score+=5
+    spawn_egg()
+    add(snake,{nh[1],nh[2],true})
+  else
+    add(snake,{nh[1],nh[2],false})
+    del(snake,snake[1])
+  end
 end
 
 function update_snake()
   if snake_step<=0 then
-    snake_step=15
+    snake_step=max_snake_step
     if (nextdir) curdir=nextdir
     nextdir=nil
     move_snake()
@@ -94,15 +125,45 @@ function direct_snake()
   end
 end
 
+function gen_egg_spot()
+  return {flr(rnd(30)),flr(rnd(28))}
+end
+
+function on_snake(xy)
+  for s in all(snake) do
+    if peq(s,xy) then
+      return true
+    end
+  end
+  return false
+end
+
+function find_egg_spot()
+  local xy
+  repeat
+    xy=gen_egg_spot()
+  until not on_snake(xy)
+  return xy
+end
+
+function spawn_egg()
+  cur_egg=find_egg_spot()
+end
+
 function _update()
   if intro then
     if btnp(5) then
       intro=false
       start_game()
     end
-  else
+  elseif not game_over then
     update_snake()
     direct_snake()
+  else
+    if btnp(4) or btnp(5) then
+      game_over=false
+      intro=true
+    end
   end
 end
 
@@ -117,10 +178,14 @@ function spr4(n, x, y, fx, fy)
 end
 
 function calc_dir(dx,dy)
-  if (dx<0) return left
-  if (dx>0) return right
-  if (dy<0) return up
-  if (dy>0) return down
+  if (dx==-1) return left
+  if (dx==1) return right
+  if (dy==-1) return up
+  if (dy==1) return down
+  if (dx<-1) return right
+  if (dx>1) return left
+  if (dy<-1) return down
+  if (dy>1) return up
 end
 
 function snspr(n,x,y,fx,fy)
@@ -154,10 +219,14 @@ function draw_head(x,y,dirp)
     sn=headh
     fx=true
   end
+  if cur_egg and peq(next_snake_pt(),cur_egg) then
+    if (sn==headh) sn=oheadh
+    if (sn==headv) sn=oheadv
+  end
   snspr(sn,x,y,fx,fy)
 end
 
-function draw_body(x,y,dirp,dirn)
+function draw_body(x,y,full,dirp,dirn)
   local fx=false
   local fy=false
   if dirp==up then
@@ -203,6 +272,13 @@ function draw_body(x,y,dirp,dirn)
       fx=true
     end
   end
+  if full then
+    if sn==bend then
+      sn=bendf
+    else
+      sn=bodyf
+    end
+  end    
   snspr(sn,x,y,fx,fy)
 end
 
@@ -210,6 +286,7 @@ function draw_snake()
   for i=1,#snake,1 do
     local sx=snake[i][1]
     local sy=snake[i][2]
+    local full=snake[i][3]
     local dirp=0
     local dirn=0
     if i>1 then
@@ -229,9 +306,15 @@ function draw_snake()
     elseif i==#snake then
       draw_head(sx,sy,dirp)
     else
-      draw_body(sx,sy,dirp,dirn)
+      draw_body(sx,sy,full,dirp,dirn)
     end
   end
+end
+
+function draw_egg()
+  local x=cur_egg[1]
+  local y=cur_egg[2]
+  spr4(egg,4+x*4,12+y*4,false,false)
 end
 
 function _draw()
@@ -243,6 +326,10 @@ function _draw()
     print(score, 2, 3, 3)
     rect(2, 10, 125, 125, 3)
     draw_snake()
+    draw_egg()
+    if game_over then
+      print("game over", 90, 3, 3)
+    end
   end
 end
 __gfx__
@@ -342,3 +429,6 @@ bbbbbbbbbbbbb333333333333333bbbbbbb33bbb33333333bb33bbbbbbbbbbbbbbbbbbbbbbbbbbbb
 bbbbbbbbbbbbbbb3333333333333333333b333bb333333333bb3333bbbbbbbbbbbbbbbbbbbbbbbbb33bbbbbbb333333333bbbbb333333333333bbbbbbbbbbbbb
 bbbbbbbbbbbbbbbbbb3333333333333333b3333bb333333333bbbb333333bbbbbbbbbbbbbbbbb3333bbb3333bbbbbbbbbbb3333333333333bbbbbbbbbbbbbbbb
 bbbbbbbbbbbbbbbbbbbbbbb333333333333b3bb3b333333333333bbbbbb3333333333333333333bbbb3333333333333333333333333bbbbbbbbbbbbbbbbbbbbb
+__sfx__
+000100003e0703e050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000200000d2500d2501b2501b2500d2500d2501b2501b2501b2001b2000d2000d2001b2000d2001b2000d2001b2000d2001b2000d20000200002001d200002000020000200002000020000200002000020000200
