@@ -52,6 +52,7 @@ function startgame()
 end
 
 function gameover()
+  sfx(2)
   game_over=true
 end
 
@@ -94,7 +95,11 @@ function droppiece()
   else
     board[ci+1][cj]=p2
   end
-  clearbirds()
+  if clearbirds() then
+    sfx(1)
+  else
+    sfx(0)
+  end
   if addpiece() then
     if hrz and cj==6 then cj=5 end
     if not hrz and ci==6 then ci=5 end
@@ -126,6 +131,10 @@ function clearbirds()
     end
   end
   
+  if #toclear<=0 then
+    return false
+  end
+  
   for _,b in ipairs(toclear) do
     if board[b[1]][b[2]]~=0 then
       local x=32+b[2]*8
@@ -148,6 +157,12 @@ function clearbirds()
        end
      end
   end
+  
+  if chickens<0 then
+    sfx(3)
+  end
+  
+  return true
 end
 
 function _update()
@@ -168,15 +183,19 @@ function _update()
   else
     if btnp(⬅️) and cj>1 then
       cj-=1
+      sfx(4)
     end
     if btnp(➡️) and ((hrz and cj<5) or (not hrz and cj<6)) then
       cj+=1
+      sfx(4)
     end
     if btnp(⬆️) and ci>1 then
       ci-=1
+      sfx(4)
     end
     if btnp(⬇️) and ((hrz and ci<6) or (not hrz and ci<5)) then
       ci+=1
+      sfx(4)
     end
     if btnp(🅾️) and validate(ci,cj) then
       droppiece()
@@ -204,7 +223,13 @@ function _draw()
       local y=16+i*8
       rect(x,y,x+8,y+8,1)
       rectfill(x+1,y+1,x+8,y+8,13)
-      spr(board[i][j],x,y)
+    end
+  end
+  for i=1,6 do
+    for j=1,6 do
+      local x=32+j*8
+      local y=16+i*8
+      spr(board[i][j],x+1,y+1)
     end
   end
   
@@ -262,3 +287,9 @@ bbbbbbbb44fff44baaaaaaaa999999897777777b0000000000000000000000000000000000000000
 bbbbbbbb444fff4bee66aaab9999989bb77777bb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 bbbbbbbbb44444bbbaaaaaabb99999bbbbba9bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 bbbbbbbbbb9b9bbbbbabbabbbb4b4bbbbbaa9bbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__sfx__
+00010000092500925009250092500925009250092500a2500a3000c3000e300103001130013300153001830000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100002465024650246502465024650246502465024650246502465024650246502365022650206501e6501965017650126500f6500b6500764005640036400264001640016400063000630006200061000600
+000300003f5503f5503f5503e5503d5503c550395503755034550305502b550245501c5501855015550125500f5500c5500a55008550065500455002550015500055000540005300051000500005000150000500
+000200000a7500b7500c7500e750107501175011750137501475015750157501675017750197501a7501b7501d7501f75021750237502575027750287502a7502c7502f7503275034750377503a7503d7503f750
+000100001915019150171501515013150101500e150061500015014100111000e1000a10009100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
